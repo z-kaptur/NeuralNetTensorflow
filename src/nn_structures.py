@@ -21,8 +21,10 @@ def generate_biases_variable(shape, name=None):
     init = tf.constant(0.1, shape=shape)
     return tf.Variable(init, name=name)
 
+
 def conv_2d(x,weights, name=None):
     return tf.nn.conv2d(x,weights,strides=[1, 1, 1, 1],padding = 'SAME', name=name) #strdes [0] and [3] must be 1
+
 
 def max_pool_2x2(x, name=None):
     return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME', name=name)
@@ -37,42 +39,59 @@ def convolutional_pooling_layer(input, filter_size, in_features_num, out_feature
         with tf.name_scope('biases'):
             biases = generate_biases_variable([out_features_num], name="bias")
             variable_summaries(biases)
-        
+        print("conv")
+        print(input.shape)
+        print(weights.shape)
+        print(biases.shape)
+
         conv = conv_2d(input,weights) + biases
-        tf.summary.histogram('conv',Conv2)
-        conv_activation= tf.nn.relu(Conv2, name="relu")
+        tf.summary.histogram('conv',conv)
+        conv_activation= tf.nn.relu(conv, name="relu")
         tf.summary.histogram('conv+activation', conv_activation)
         pool = max_pool_2x2(conv_activation, name="pool")
+
 
         return pool
         
 
-def fully_connected_layer(input, in_num, out_num, name=None):
+def fully_connected_layer(input, in_num, out_num, output=False, name=None):
+    if(tf.rank(input)!=2):
+        input_flat = tf.reshape(input,[-1, in_num])
+        
+    else:
+        input_flat = input
+  
+    print(input_flat.shape)
     with tf.name_scope(name):
         with tf.name_scope('weights'):
-            weights = generate_weights_variable ([in_num, out_num], name="weight") # 1 for number of input channels
+            weights = generate_weights_variable ([int(in_num), out_num], name="weight") # 1 for number of input channels
             variable_summaries(weights)
         with tf.name_scope('biases'):
             biases = generate_biases_variable([out_num], name="bias")
             variable_summaries(biases)   
     
-        f_c = tf.nn.relu(tf.matmul(input,weights)+biases, name="relu")
-        
+        f_c = tf.matmul(input_flat,weights)+biases
+        if (not output): 
+            f_c = tf.nn.relu(f_c)
         return f_c
 
 
 def dropout(input, name=None):
-    with tf.name(name):
+    with tf.name_scope(name):
         keep_prob = tf.placeholder(tf.float32)
         drop = tf.nn.dropout(input, keep_prob)
 
     return drop, keep_prob
 
+
 def nn_4layers_ccff (input, channels, dim_x, dim_y, labels, categories_num):
-    input_reshape = tf.reshape(x,[-1,dim_x,dim_y,channels], name="image")
+    input_reshape = tf.reshape(input,[-1,dim_x,dim_y,channels], name="image")
+    tf.summary.image("0",input_reshape,10)
     c1 = convolutional_pooling_layer(input_reshape,(5,5),1,32,"conv_1")
-    c2 = convolutional_pooling_layer(c2,(5,5),32,64,"conv_2")
-    f3 = fully_connected_layer(c2,dim_x/4*dim_y/4*64,1024,"fully_con_3")
+    c1_img = tf.reshape(c1[:,:,:,1],[-1,int(dim_x/2),int(dim_y/2),1],"c1_image")
+    tf.summary.image("0",c1_img,10)
+    c2 = convolutional_pooling_layer(c1,(5,5),32,64,"conv_2")
+    f3 = fully_connected_layer(c2,int(dim_x/4*dim_y/4*64),1024,"fully_con_3")
     d3, keep_prob = dropout (f3, "dropout_3")
-    output = fully_connected_layer(d3,1024,categories_num)
-    return output
+    output = fully_connected_layer(d3,1024,categories_num,"output")
+    return output, keep_prob
