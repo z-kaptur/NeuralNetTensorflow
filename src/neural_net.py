@@ -19,20 +19,22 @@ def main():
             "../datasets/mnist/test_images.mat",
             "../datasets/mnist/train_labels.mat",
             "../datasets/mnist/test_labels.mat")
+        data.prepare_shape(FLAGS.num_categories)
+
     elif FLAGS.dataset == "svhn":
         data = dl.DataSet(32,32,"svhn", "../datasets/svhn_dataset/train_32x32.mat", 
             "../datasets/svhn_dataset/test_32x32.mat")
         data.prepare_shape(FLAGS.num_categories)
 
-    data_x_dim = data._dim_x
-    data_y_dim = data._dim_y
+    data_height = data._height
+    data_width = data._width
 
     num_dimensions = 1
 
-    x = tf.placeholder(tf.float32,[None, data_x_dim*data_y_dim])
+    x = tf.placeholder(tf.float32,[None, data_height*data_width])
     y_ = tf.placeholder(tf.float32,[None, FLAGS.num_categories])
 
-    output, keep_prob = nns.nn_4layers_ccff(x,num_dimensions,data_x_dim,data_y_dim,y_,FLAGS.num_categories) 
+    output, keep_prob = nns.nn_4layers_ccff(x,num_dimensions,data_height,data_width,FLAGS.num_categories) 
 
     sess = tf.InteractiveSession()
 
@@ -75,6 +77,10 @@ def main():
     test_data, test_labels = data.load_test_data()
     print("Test accuracy {0:.3f}%".format(accuracy.eval(feed_dict={
         x: test_data, y_: test_labels, keep_prob: 1.0})*100.0))
+
+    saver = tf.train.Saver()
+    saver.save(sess, '../trained_models/'+FLAGS.model_path)
+    saver.export_meta_graph('../trained_models/'+FLAGS.model_path+'.meta')
 
     sess.close()
 
@@ -119,6 +125,14 @@ if __name__ == "__main__":
       type=int,
       default=10,
       help='Display every ... steps.'
+    )
+    parser.add_argument(
+      '--model',
+      action='store',
+      dest='model_path',
+      type=str,
+      default="model",
+      help='Path for saving the model.'
     )
     FLAGS = parser.parse_args()
     main()
